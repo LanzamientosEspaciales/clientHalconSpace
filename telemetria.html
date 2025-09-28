@@ -48,7 +48,7 @@
     }
 
     main {
-      flex: 1; /* empuja el footer abajo */
+      flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -130,6 +130,7 @@
     let estado = "normal";
     let holdUTC = null;
     let intervalId = null;
+    let telemetriaActiva = false;
 
     function formatearTiempo(diffSegundos) {
       const esPositivo = diffSegundos >= 0;
@@ -157,7 +158,10 @@
       document.getElementById("contador").innerText = "⏱ " + formatearTiempo(diffSegundos);
     }
 
-    if (lanzamientoId) {
+    // Validar ID
+    if (!lanzamientoId) {
+      document.getElementById("contador").textContent = "⚠️ Falta parámetro ?id";
+    } else {
       const refDoc = doc(db, "lanzamientos", lanzamientoId);
       onSnapshot(refDoc, (snap) => {
         if (!snap.exists()) {
@@ -170,6 +174,7 @@
         objetivoUTC = data.utcTime ? new Date(data.utcTime) : null;
         holdUTC = data.holdTime ? new Date(data.holdTime) : null;
 
+        // Nombre de misión
         if (data.nombre) {
           document.getElementById("mission-name").textContent = "— " + data.nombre;
         }
@@ -179,39 +184,48 @@
           return;
         }
 
-        if (intervalId) clearInterval(intervalId);
-        actualizarTimer();
-        intervalId = setInterval(actualizarTimer, 1000);
+        // Validar telemetría_on
+        if (data.telemetria_on === false) {
+          document.getElementById("contador").textContent = "⚠️ Telemetría desactivada";
+          telemetriaActiva = false;
+          return;
+        } else {
+          telemetriaActiva = true;
+          actualizarTimer();
+          if (intervalId) clearInterval(intervalId);
+          intervalId = setInterval(actualizarTimer, 1000);
+        }
+
+        // Solo subscribirse a telemetría si está activa
+        if (telemetriaActiva) {
+          const refTelemetria = doc(db, "telemetria", "estado_actual");
+          onSnapshot(refTelemetria, (snapT) => {
+            if (!snapT.exists()) return;
+            const tData = snapT.data();
+
+            if (tData.altitude_m !== undefined) {
+              const alturaKm = (tData.altitude_m / 1000).toFixed(1);
+              document.getElementById("altura").innerText = `🚀 Altura: ${alturaKm} km`;
+            }
+            if (tData.velocity_kmh !== undefined) {
+              document.getElementById("velocidad").innerText = `⚡ Velocidad: ${tData.velocity_kmh} km/h`;
+            }
+            if (tData.inclination !== undefined) {
+              document.getElementById("inclinacion").innerText = `🛰️ Inclinación: ${tData.inclination.toFixed(1)} °`;
+            }
+            if (tData.perigeo !== undefined && tData.apogeo !== undefined) {
+              const perigeoKm = Math.round(tData.perigeo / 1000);
+              const apogeoKm = Math.round(tData.apogeo / 1000);
+              document.getElementById("orbita").innerText = `🪐 Órbita: ${perigeoKm} x ${apogeoKm} km`;
+            }
+            if (tData.distance_m !== undefined) {
+              const distanciaKm = (tData.distance_m / 1000).toFixed(1);
+              document.getElementById("distancia").innerText = `📏 Distancia: ${distanciaKm} km`;
+            }
+          });
+        }
       });
-    } else {
-      document.getElementById("contador").textContent = "⚠️ Falta parámetro ?id";
     }
-
-    const refTelemetria = doc(db, "telemetria", "estado_actual");
-    onSnapshot(refTelemetria, (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-
-      if (data.altitude_m !== undefined) {
-        const alturaKm = (data.altitude_m / 1000).toFixed(1);
-        document.getElementById("altura").innerText = `🚀 Altura: ${alturaKm} km`;
-      }
-      if (data.velocity_kmh !== undefined) {
-        document.getElementById("velocidad").innerText = `⚡ Velocidad: ${data.velocity_kmh} km/h`;
-      }
-      if (data.inclination !== undefined) {
-        document.getElementById("inclinacion").innerText = `🛰️ Inclinación: ${data.inclination.toFixed(1)} °`;
-      }
-      if (data.perigeo !== undefined && data.apogeo !== undefined) {
-        const perigeoKm = Math.round(data.perigeo / 1000);
-        const apogeoKm = Math.round(data.apogeo / 1000);
-        document.getElementById("orbita").innerText = `🪐 Órbita: ${perigeoKm} x ${apogeoKm} km`;
-      }
-      if (data.distance_m !== undefined) {
-        const distanciaKm = (data.distance_m / 1000).toFixed(1);
-        document.getElementById("distancia").innerText = `📏 Distancia: ${distanciaKm} km`;
-      }
-    });
   </script>
 </body>
 </html>
