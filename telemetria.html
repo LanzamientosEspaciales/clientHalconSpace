@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Halcon Space - Telemetría en Vivo</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: #0a0a0a;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      text-align: center;
+    }
+
+    header {
+      background-color: #111;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    header img {
+      height: 60px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+
+    header .mission {
+      font-size: 1.2rem;
+      font-weight: normal;
+      color: #00ffcc;
+      margin-left: 10px;
+    }
+
+    main {
+      flex: 1; /* empuja el footer abajo */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .telemetria {
+      margin-top: 20px;
+    }
+
+    .contador {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      color: #00ffcc;
+    }
+
+    .status {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    .dato {
+      font-size: 2rem;
+      margin: 10px 0;
+    }
+
+    footer {
+      background-color: #111;
+      padding: 20px;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://halconspace.site/img/logo.png" alt="Logo Halcon Space">
+    <h1>Halcon Space <span id="mission-name" class="mission">— Misión Desconocida</span></h1>
+  </header>
+
+  <main>
+    <section class="telemetria">
+      <div id="contador" class="contador">⏱ Cargando...</div>
+      <div id="status" class="status"></div>
+      <div id="altura" class="dato">🚀 Altura: -- km</div>
+      <div id="velocidad" class="dato">⚡ Velocidad: -- km/h</div>
+      <div id="inclinacion" class="dato">🛰️ Inclinación: -- °</div>
+      <div id="orbita" class="dato">🪐 Órbita: -- x -- km</div>
+      <div id="distancia" class="dato">📏 Distancia: -- km</div>
+    </section>
+  </main>
+
+  <footer>
+    © 2025 Halcon Space - Telemetría en vivo
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const lanzamientoId = params.get("id");
+
+    let objetivoUTC = null;
+    let estado = "normal";
+    let holdUTC = null;
+    let intervalId = null;
+
+    function formatearTiempo(diffSegundos) {
+      const esPositivo = diffSegundos >= 0;
+      const horas = Math.floor(Math.abs(diffSegundos) / 3600);
+      const minutos = Math.floor((Math.abs(diffSegundos) % 3600) / 60);
+      const segundos = Math.floor(Math.abs(diffSegundos) % 60);
+      return `${esPositivo ? "T+" : "T-"} ${horas.toString().padStart(2,'0')}:${minutos.toString().padStart(2,'0')}:${segundos.toString().padStart(2,'0')}`;
+    }
+
+    function actualizarTimer() {
+      if (!objetivoUTC) return;
+
+      let diffSegundos;
+      const statusElem = document.getElementById("status");
+
+      if ((estado === "hold" || estado === "scrub") && holdUTC) {
+        diffSegundos = Math.floor((holdUTC.getTime() - objetivoUTC.getTime()) / 1000);
+        statusElem.textContent = estado.toUpperCase();
+        statusElem.style.color = (estado === "scrub") ? "red" : "yellow";
+      } else {
+        diffSegundos = Math.floor((Date.now() - objetivoUTC.getTime()) / 1000);
+        statusElem.textContent = "";
+      }
+
+      document.getElementById("contador").innerText = "⏱ " + formatearTiempo(diffSegundos);
+    }
+
+    if (lanzamientoId) {
+      const refDoc = doc(db, "lanzamientos", lanzamientoId);
+      onSnapshot(refDoc, (snap) => {
+        if (!snap.exists()) {
+          document.getElementById("contador").textContent = "⚠️ Lanzamiento no encontrado";
+          return;
+        }
+
+        const data = snap.data();
+        estado = data.estado ?? "normal";
+        objetivoUTC = data.utcTime ? new Date(data.utcTime) : null;
+        holdUTC = data.holdTime ? new Date(data.holdTime) : null;
+
+        if (data.nombre) {
+          document.getElementById("mission-name").textContent = "— " + data.nombre;
+        }
+
+        if (!objetivoUTC) {
+          document.getElementById("contador").textContent = "⚠️ Falta utcTime";
+          return;
+        }
+
+        if (intervalId) clearInterval(intervalId);
+        actualizarTimer();
+        intervalId = setInterval(actualizarTimer, 1000);
+      });
+    } else {
+      document.getElementById("contador").textContent = "⚠️ Falta parámetro ?id";
+    }
+
+    const refTelemetria = doc(db, "telemetria", "estado_actual");
+    onSnapshot(refTelemetria, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+
+      if (data.altitude_m !== undefined) {
+        const alturaKm = (data.altitude_m / 1000).toFixed(1);
+        document.getElementById("altura").innerText = `🚀 Altura: ${alturaKm} km`;
+      }
+      if (data.velocity_kmh !== undefined) {
+        document.getElementById("velocidad").innerText = `⚡ Velocidad: ${data.velocity_kmh} km/h`;
+      }
+      if (data.inclination !== undefined) {
+        document.getElementById("inclinacion").innerText = `🛰️ Inclinación: ${data.inclination.toFixed(1)} °`;
+      }
+      if (data.perigeo !== undefined && data.apogeo !== undefined) {
+        const perigeoKm = Math.round(data.perigeo / 1000);
+        const apogeoKm = Math.round(data.apogeo / 1000);
+        document.getElementById("orbita").innerText = `🪐 Órbita: ${perigeoKm} x ${apogeoKm} km`;
+      }
+      if (data.distance_m !== undefined) {
+        const distanciaKm = (data.distance_m / 1000).toFixed(1);
+        document.getElementById("distancia").innerText = `📏 Distancia: ${distanciaKm} km`;
+      }
+    });
+  </script>
+</body>
+</html>
