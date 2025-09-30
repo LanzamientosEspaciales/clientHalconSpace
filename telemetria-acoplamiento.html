@@ -136,7 +136,7 @@
     <div class="grid">
       <!-- Datos de la nave -->
       <div class="card">
-        <h2>Nave</h2>
+        <h2 id="nave-nombre">Nave</h2>
         <div id="nave-altura" class="dato">🚀 Altura: -- km</div>
         <div id="nave-velocidad" class="dato">⚡ Velocidad: -- km/h</div>
         <div id="nave-inclinacion" class="dato">🛰️ Inclinación: -- °</div>
@@ -145,7 +145,7 @@
 
       <!-- Datos de la estación -->
       <div class="card">
-        <h2>Estación</h2>
+        <h2 id="estacion-nombre">Estación</h2>
         <div id="estacion-altura" class="dato">🏠 Altura: -- km</div>
         <div id="estacion-velocidad" class="dato">⚡ Velocidad: -- km/h</div>
         <div id="estacion-inclinacion" class="dato">🛰️ Inclinación: -- °</div>
@@ -189,6 +189,11 @@
     const db = getFirestore(app);
 
     let maxDistancia = 2000; // valor por defecto
+    let naveName = "Eagle Coming 3";
+    let estacionName = "Sodium Eagle";
+
+    document.getElementById("nave-nombre").innerText = naveName;
+    document.getElementById("estacion-nombre").innerText = estacionName;
 
     // --- Listener a config ---
     const refConfig = doc(db, "telemetria", "config"); // Documento "config"
