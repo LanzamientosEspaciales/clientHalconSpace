@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Halcon Space - Telemetría de Acoplamiento</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: #0a0a0a;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background-color: #111;
+      padding: 20px;
+      text-align: center;
+    }
+
+    header img {
+      height: 60px;
+    }
+
+    header h1 {
+      margin: 10px 0 0;
+      font-size: 2rem;
+    }
+
+    header .mission {
+      font-size: 1.2rem;
+      font-weight: normal;
+      color: #00ffcc;
+      display: block;
+      margin-top: 5px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .card {
+      background-color: #111;
+      border: 1px solid #222;
+      border-radius: 10px;
+      padding: 20px;
+      flex: 1;
+      min-width: 280px;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    .card h2 {
+      margin-bottom: 15px;
+      color: #00ffcc;
+    }
+
+    .dato {
+      font-size: 1.2rem;
+      margin: 8px 0;
+    }
+
+    .relativo {
+      background-color: #222;
+      border: 1px dashed #00ffcc;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .relativo h2 {
+      margin-bottom: 15px;
+      color: #ffcc00;
+    }
+
+    .progress-wrapper {
+      margin-top: 15px;
+    }
+
+    .progress-label {
+      font-size: 1rem;
+      margin-bottom: 5px;
+    }
+
+    .progress-container {
+      background: #444;
+      border-radius: 10px;
+      height: 25px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00);
+      transition: width 0.5s ease;
+    }
+
+    footer {
+      background-color: #111;
+      padding: 20px;
+      font-size: 0.9rem;
+      color: #aaa;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://halconspace.site/img/logo.png" alt="Logo Halcon Space">
+    <h1>Halcon Space</h1>
+    <span id="mission-name" class="mission">— Acoplamiento</span>
+  </header>
+
+  <main>
+    <div class="grid">
+      <!-- Datos de la nave -->
+      <div class="card">
+        <h2>Nave</h2>
+        <div id="nave-altura" class="dato">🚀 Altura: -- km</div>
+        <div id="nave-velocidad" class="dato">⚡ Velocidad: -- km/h</div>
+        <div id="nave-inclinacion" class="dato">🛰️ Inclinación: -- °</div>
+        <div id="nave-orbita" class="dato">🪐 Órbita: -- x -- km</div>
+      </div>
+
+      <!-- Datos de la estación -->
+      <div class="card">
+        <h2>Estación</h2>
+        <div id="estacion-altura" class="dato">🏠 Altura: -- km</div>
+        <div id="estacion-velocidad" class="dato">⚡ Velocidad: -- km/h</div>
+        <div id="estacion-inclinacion" class="dato">🛰️ Inclinación: -- °</div>
+        <div id="estacion-orbita" class="dato">🪐 Órbita: -- x -- km</div>
+      </div>
+    </div>
+
+    <!-- Datos relativos -->
+    <div class="relativo">
+      <h2>Datos Relativos</h2>
+      <div id="rel-distancia" class="dato">📏 Distancia: -- m</div>
+      <div class="progress-wrapper">
+        <div id="progress-label" class="progress-label">Aproximación: 0% (máx: 2000 m)</div>
+        <div class="progress-container">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+      </div>
+      <div id="rel-velocidad" class="dato">🔄 Velocidad relativa: -- km/h</div>
+    </div>
+  </main>
+
+  <footer>
+    © 2025 Halcon Space - Telemetría de Acoplamiento
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+      authDomain: "halcon-space-348e7.firebaseapp.com",
+      projectId: "halcon-space-348e7",
+      storageBucket: "halcon-space-348e7.firebasestorage.app",
+      messagingSenderId: "741724706453",
+      appId: "1:741724706453:web:519531e63f2b923f952d9c",
+      measurementId: "G-VG1Y2YMY4W"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let maxDistancia = 2000; // valor por defecto
+
+    // --- Listener a config ---
+    const refConfig = doc(db, "telemetria", "config"); // Documento "config"
+    onSnapshot(refConfig, (snap) => {
+      if (snap.exists() && snap.data().max_distancia !== undefined) {
+        maxDistancia = snap.data().max_distancia;
+        document.getElementById("progress-label").innerText =
+          `Aproximación: 0% (máx: ${maxDistancia} m)`;
+      }
+    });
+
+    // --- Listener a telemetría ---
+    const refTelemetria = doc(db, "telemetria", "estado_actual");
+    onSnapshot(refTelemetria, (snap) => {
+      if (!snap.exists()) return;
+      const tData = snap.data();
+
+      // --- Nave ---
+      if (tData.altitude_m !== undefined) {
+        document.getElementById("nave-altura").innerText =
+          `🚀 Altura: ${(tData.altitude_m / 1000).toFixed(1)} km`;
+      }
+      if (tData.velocity_kmh !== undefined) {
+        document.getElementById("nave-velocidad").innerText =
+          `⚡ Velocidad: ${tData.velocity_kmh} km/h`;
+      }
+      if (tData.inclination !== undefined) {
+        document.getElementById("nave-inclinacion").innerText =
+          `🛰️ Inclinación: ${tData.inclination.toFixed(2)} °`;
+      }
+      if (tData.perigeo !== undefined && tData.apogeo !== undefined) {
+        const perigeoKm = Math.round(tData.perigeo / 1000);
+        const apogeoKm = Math.round(tData.apogeo / 1000);
+        document.getElementById("nave-orbita").innerText =
+          `🪐 Órbita: ${perigeoKm} x ${apogeoKm} km`;
+      }
+
+      // --- Estación ---
+      if (tData.objetivo) {
+        if (tData.objetivo.altitude_m !== undefined) {
+          document.getElementById("estacion-altura").innerText =
+            `🏠 Altura: ${(tData.objetivo.altitude_m / 1000).toFixed(1)} km`;
+        }
+        if (tData.objetivo.velocity_kmh !== undefined) {
+          document.getElementById("estacion-velocidad").innerText =
+            `⚡ Velocidad: ${tData.objetivo.velocity_kmh} km/h`;
+        }
+        if (tData.objetivo.inclination !== undefined) {
+          document.getElementById("estacion-inclinacion").innerText =
+            `🛰️ Inclinación: ${tData.objetivo.inclination.toFixed(2)} °`;
+        }
+        if (tData.objetivo.perigeo !== undefined && tData.objetivo.apogeo !== undefined) {
+          const perigeoObjKm = Math.round(tData.objetivo.perigeo / 1000);
+          const apogeoObjKm = Math.round(tData.objetivo.apogeo / 1000);
+          document.getElementById("estacion-orbita").innerText =
+            `🪐 Órbita: ${perigeoObjKm} x ${apogeoObjKm} km`;
+        }
+
+        // --- Relativo ---
+        if (tData.objetivo.distancia !== undefined) {
+          const distancia = tData.objetivo.distancia;
+          document.getElementById("rel-distancia").innerText =
+            `📏 Distancia: ${distancia.toFixed(1)} m`;
+
+          const porcentaje = Math.max(0, Math.min(100, (1 - distancia / maxDistancia) * 100));
+          document.getElementById("progress-bar").style.width = `${porcentaje}%`;
+          document.getElementById("progress-label").innerText =
+            `Aproximación: ${porcentaje.toFixed(1)}% (máx: ${maxDistancia} m)`;
+        }
+
+        if (tData.objetivo.velocidad_relativa !== undefined) {
+          document.getElementById("rel-velocidad").innerText =
+            `🔄 Velocidad relativa: ${tData.objetivo.velocidad_relativa} km/h`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
