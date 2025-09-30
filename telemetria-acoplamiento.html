@@ -254,15 +254,25 @@
 
         // --- Relativo ---
         if (tData.objetivo.distancia !== undefined) {
-          const distancia = tData.objetivo.distancia;
-          document.getElementById("rel-distancia").innerText =
-            `📏 Distancia: ${distancia.toFixed(1)} m`;
-
-          const porcentaje = Math.max(0, Math.min(100, (1 - distancia / maxDistancia) * 100));
-          document.getElementById("progress-bar").style.width = `${porcentaje}%`;
-          document.getElementById("progress-label").innerText =
-            `Aproximación: ${porcentaje.toFixed(1)}% (máx: ${maxDistancia} m)`;
+        const distanciaM = tData.objetivo.distancia; // distancia en metros
+        let displayDistancia;
+              
+        if (distanciaM > 100000) { // más de 100 km
+          displayDistancia = `${Math.round(distanciaM / 1000)} km`;
+        } else if (distanciaM > 10000) { // más de 10 km
+          displayDistancia = `${(distanciaM / 1000).toFixed(1)} km`;
+        } else { // menos de 10 km
+          displayDistancia = `${Math.round(distanciaM)} m`;
         }
+
+  document.getElementById("rel-distancia").innerText = `📏 Distancia: ${displayDistancia}`;
+
+  const porcentaje = Math.max(0, Math.min(100, (1 - distanciaM / maxDistancia) * 100));
+  document.getElementById("progress-bar").style.width = `${porcentaje}%`;
+  document.getElementById("progress-label").innerText =
+    `Aproximación: ${porcentaje.toFixed(1)}% (máx: ${maxDistancia} m)`;
+}
+
 
         if (tData.objetivo.velocidad_relativa !== undefined) {
           document.getElementById("rel-velocidad").innerText =
