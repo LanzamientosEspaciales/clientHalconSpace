@@ -214,9 +214,9 @@
               document.getElementById("inclinacion").innerText = `🛰️ Inclinación: ${tData.inclination.toFixed(1)} °`;
             }
             if (tData.perigeo !== undefined && tData.apogeo !== undefined) {
-              const perigeoKm = Math.round(tData.perigeo / 1000);
-              const apogeoKm = Math.round(tData.apogeo / 1000);
-              document.getElementById("orbita").innerText = `🪐 Órbita: ${perigeoKm} x ${apogeoKm} km`;
+             const perigeoKm = (tData.perigeo / 1000).toFixed(1);
+             const apogeoKm = (tData.apogeo / 1000).toFixed(1);
+             document.getElementById("orbita").innerText = `🪐 Órbita: ${perigeoKm} x ${apogeoKm} km`;
             }
             if (tData.distance_m !== undefined) {
               const distanciaKm = (tData.distance_m / 1000).toFixed(1);
