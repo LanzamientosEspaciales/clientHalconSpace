@@ -19,6 +19,7 @@
             --color-rocket: #ff6600;
             --color-trail: #ff8800;
             --color-atmosphere: #FF4081;
+            --color-green: #00FF00;
         }
         
         * {
@@ -135,6 +136,18 @@
             background: var(--color-primary);
             box-shadow: 0 0 15px var(--color-primary);
         }
+
+        .status.connected {
+    border-color: #00FF00;
+    box-shadow: 0 0 20px #00FF00;
+}
+
+.status.connected .status-indicator {
+    background: #00FF00;
+    box-shadow: 0 0 15px #00FF00;
+}
+
+
         
         @keyframes pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
@@ -213,8 +226,16 @@
         <div id="telemetry">
             <div class="telemetry-title" id="missionTitle">TELEMETRÍA</div>
             <div class="data-row">
+                <span class="label">Tiempo:</span>
+                <span class="value highlight" id="missionTime">--:--:--</span>
+            </div>
+            <div class="data-row">
+                <span class="label">Estado:</span>
+                <span class="value" id="missionStatus">---</span>
+            </div>            
+            <div class="data-row">
                 <span class="label">Altitud:</span>
-                <span class="value highlight" id="altitude">--- km</span>
+                <span class="value" id="altitude">--- km</span>
             </div>
             <div class="data-row">
                 <span class="label">Apogeo:</span>
@@ -245,306 +266,360 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
-            authDomain: "halcon-space-348e7.firebaseapp.com",
-            projectId: "halcon-space-348e7",
-            storageBucket: "halcon-space-348e7.firebasestorage.app",
-            messagingSenderId: "741724706453",
-            appId: "1:741724706453:web:519531e63f2b923f952d9c",
-            measurementId: "G-VG1Y2YMY4W"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyAiLw2zwfsjdMP-IlEoE5JugyFvmaQLFC0",
+    authDomain: "halcon-space-348e7.firebaseapp.com",
+    projectId: "halcon-space-348e7",
+    storageBucket: "halcon-space-348e7.firebasestorage.app",
+    messagingSenderId: "741724706453",
+    appId: "1:741724706453:web:519531e63f2b923f952d9c",
+    measurementId: "G-VG1Y2YMY4W"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+// Variables globales
+let telemetryData = {};
+let missionId = null;
+let missionName = '';
+let telemetryActive = false;
+let contadorInterval = null;
+let lanzamiento = { estado: "preparacion", holdTime: null, fecha: "", timeUTC: "" };
 
-        // Three.js setup
-        const canvas = document.getElementById('canvas');
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000000);
-        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setClearColor(0x000000, 0);
+// Función para calcular el tiempo (T-/T+)
+function calcularContador(fechaStr, timeStr, now = null) {
+    const [dia, mes, anio] = fechaStr.split("/").map(Number);
+    const [h, m, s] = (timeStr || "00:00:00").split(":").map(Number);
+    const launchDate = new Date(Date.UTC(anio, mes - 1, dia, h, m, s));
+    const currentTime = now ? new Date(now) : new Date();
+    let diff = Math.floor((launchDate - currentTime) / 1000);
+    let signo = diff >= 0 ? "T-" : "T+";
+    diff = Math.abs(diff);
+    const dias = Math.floor(diff / 86400);
+    const horas = String(Math.floor((diff % 86400) / 3600)).padStart(2, "0");
+    const minutos = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
+    const segundos = String(diff % 60).padStart(2, "0");
+    return dias > 0 ? `${signo}${dias}D ${horas}:${minutos}:${segundos}` : `${signo}${horas}:${minutos}:${segundos}`;
+}
 
-        // Kerbin (Radio: 600,000 m)
-        const kerbinRadius = 600;
-        const kerbinGeometry = new THREE.SphereGeometry(kerbinRadius, 64, 64);
-        const kerbinTexture = new THREE.TextureLoader().load('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cmFkaWFsR3JhZGllbnQgaWQ9ImciPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMzYTdhZmYiLz48c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iIzJhNmFkZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzFhNWFjZiIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSJ1cmwoI2cpIi8+PC9zdmc+');
-        const kerbinMaterial = new THREE.MeshPhongMaterial({ 
-            map: kerbinTexture,
-            emissive: 0x1a4a8f,
-            emissiveIntensity: 0.2
-        });
-        const kerbin = new THREE.Mesh(kerbinGeometry, kerbinMaterial);
-        scene.add(kerbin);
+// Función para actualizar el contador en el DOM
+function actualizarContador() {
+    const missionTimeSpan = document.getElementById("missionTime");
+    let now = new Date();
 
-        // Atmósfera
-        const atmosphereGeometry = new THREE.SphereGeometry(kerbinRadius * 1.12, 64, 64);
-        const atmosphereMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00bbdd,
-            transparent: true,
-            opacity: 0.15,
-            side: THREE.BackSide
-        });
-        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-        scene.add(atmosphere);
-
-        // Iluminación
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        sunLight.position.set(2000, 500, 1000);
-        scene.add(sunLight);
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
-        scene.add(ambientLight);
-
-        // Cohete
-        const rocketGeometry = new THREE.ConeGeometry(15, 50, 8);
-        const rocketMaterial = new THREE.MeshPhongMaterial({ 
-            color: 0xff6600,
-            emissive: 0xff6600,
-            emissiveIntensity: 0.5
-        });
-        const rocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
-        scene.add(rocket);
-
-        // Trail del cohete
-        const trailPoints = [];
-        const maxTrailPoints = 200;
-        const trailGeometry = new THREE.BufferGeometry();
-        const trailMaterial = new THREE.LineBasicMaterial({ 
-            color: 0xff8800,
-            transparent: true,
-            opacity: 0.8
-        });
-        const trail = new THREE.Line(trailGeometry, trailMaterial);
-        scene.add(trail);
-
-        // Órbita elíptica
-        let orbitLine = null;
-
-        function createOrbit(perigeo, apogeo, inclination) {
-            if (orbitLine) scene.remove(orbitLine);
-            
-            const a = (perigeo + apogeo) / 2000 + kerbinRadius;
-            const c = (apogeo - perigeo) / 2000;
-            const b = Math.sqrt(a * a - c * c);
-            
-            const points = [];
-            const segments = 200;
-            
-            for (let i = 0; i <= segments; i++) {
-                const angle = (i / segments) * Math.PI * 2;
-                const x = a * Math.cos(angle) - c;
-                const y = b * Math.sin(angle);
-                const z = y * Math.sin(inclination * Math.PI / 180);
-                const yRotated = y * Math.cos(inclination * Math.PI / 180);
-                points.push(new THREE.Vector3(x, yRotated, z));
-            }
-            
-            const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
-            const orbitMaterial = new THREE.LineBasicMaterial({ 
-                color: 0x00ffcc,
-                transparent: true,
-                opacity: 0.7
-            });
-            orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
-            scene.add(orbitLine);
+    // Si es SCRUB o HOLD, usar el tiempo guardado en holdTime
+    if (lanzamiento.estado?.toLowerCase() === "scrub" || lanzamiento.estado?.toLowerCase() === "hold") {
+        if (lanzamiento.holdTime) {
+            now = new Date(lanzamiento.holdTime);
         }
+    }
 
-        // Marcadores de apogeo y perigeo
-        let apogeoMarker = null;
-        let perigeoMarker = null;
+    const nuevoTexto = calcularContador(lanzamiento.fecha, lanzamiento.timeUTC, now);
+    missionTimeSpan.textContent = nuevoTexto;
+}
 
-        function createMarkers(perigeo, apogeo, inclination) {
-            if (apogeoMarker) scene.remove(apogeoMarker);
-            if (perigeoMarker) scene.remove(perigeoMarker);
-            
-            const markerGeometry = new THREE.SphereGeometry(20, 16, 16);
-            
-            const apogeoMaterial = new THREE.MeshBasicMaterial({ color: 0xff3366 });
-            apogeoMarker = new THREE.Mesh(markerGeometry, apogeoMaterial);
-            const apogeoDistance = apogeo / 1000 + kerbinRadius;
-            apogeoMarker.position.set(-apogeoDistance, 0, 0);
-            scene.add(apogeoMarker);
-            
-            const perigeoMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
-            perigeoMarker = new THREE.Mesh(markerGeometry, perigeoMaterial);
-            const perigeoDistance = perigeo / 1000 + kerbinRadius;
-            perigeoMarker.position.set(perigeoDistance, 0, 0);
-            scene.add(perigeoMarker);
-        }
+// Función para iniciar/parar el contador
+function iniciarContador() {
+    if (contadorInterval) clearInterval(contadorInterval);
+    actualizarContador(); // Actualiza una vez inmediatamente
 
-        camera.position.set(2000, 1000, 2000);
-        camera.lookAt(0, 0, 0);
+    // Solo seguir actualizando si NO es SCRUB
+    if (lanzamiento.estado?.toLowerCase() !== "scrub") {
+        contadorInterval = setInterval(actualizarContador, 1000);
+    }
+}
 
-        // Controles de cámara
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.screenSpacePanning = false;
-        controls.minDistance = 700;
-        controls.maxDistance = 8000;
-        controls.enableZoom = true;
-        controls.enableRotate = true;
-        controls.enablePan = true;
 
-        let telemetryData = {};
-        let missionId = null;
-        let missionName = '';
-        let telemetryActive = false;
+// Three.js setup
+const canvas = document.getElementById('canvas');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000000);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0);
 
-        // Obtener ID de la misión desde la URL
-        const urlParams = new URLSearchParams(window.location.search);
-        missionId = urlParams.get('id');
+// Kerbin
+const kerbinRadius = 600;
+const kerbinGeometry = new THREE.SphereGeometry(kerbinRadius, 64, 64);
+const kerbinTexture = new THREE.TextureLoader().load('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cmFkaWFsR3JhZGllbnQgaWQ9ImciPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMzYTdhZmYiLz48c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iIzJhNmFkZiIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzFhNWFjZiIvPjwvcmFkaWFsR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSJ1cmwoI2cpIi8+PC9zdmc+');
+const kerbinMaterial = new THREE.MeshPhongMaterial({
+    map: kerbinTexture,
+    emissive: 0x1a4a8f,
+    emissiveIntensity: 0.2
+});
+const kerbin = new THREE.Mesh(kerbinGeometry, kerbinMaterial);
+scene.add(kerbin);
 
-        if (!missionId) {
-            document.getElementById('statusText').textContent = 'SIN ID DE MISIÓN';
-            document.getElementById('loading').innerHTML = '❌ No se especificó ID de misión<br><small>Usa ?id=[ID] en la URL</small>';
-            console.error('No se proporcionó ID de misión en la URL');
-        } else {
-            // Verificar si la telemetría está activa para esta misión
-            const missionRef = doc(db, 'lanzamientos', missionId);
-            onSnapshot(missionRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const missionData = docSnap.data();
-                    missionName = missionData.nombre || missionId;
-                    telemetryActive = missionData.telemetria_on === true;
-                    
-                    // Actualizar título con nombre de misión
-                    document.getElementById('missionTitle').textContent = 'TELEMETRÍA ' + missionName.toUpperCase();
-                    
-                    if (!telemetryActive) {
-                        document.getElementById('statusText').textContent = 'TELEMETRÍA DESACTIVADA';
-                        document.getElementById('loading').innerHTML = '⚠️ Telemetría desactivada para esta misión<br><small>' + missionName + '</small>';
-                    } else {
-                        document.getElementById('loading').style.display = 'none';
-                        startTelemetryListener();
-                    }
-                } else {
-                    document.getElementById('statusText').textContent = 'MISIÓN NO ENCONTRADA';
-                    document.getElementById('loading').innerHTML = '❌ Misión no encontrada<br><small>ID: ' + missionId + '</small>';
-                }
-            });
-        }
+// Atmósfera
+const atmosphereGeometry = new THREE.SphereGeometry(kerbinRadius * 1.12, 64, 64);
+const atmosphereMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00bbdd,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.BackSide
+});
+const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+scene.add(atmosphere);
 
-        function startTelemetryListener() {
-            const docRef = doc(db, 'telemetria', 'estado_actual');
-            onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists() && telemetryActive) {
-                    const data = docSnap.data();
-                    telemetryData = data;
-                    updateTelemetryDisplay(data);
-                    updateOrbit(data);
-                    updateRocketPosition();
-                    document.getElementById('statusText').textContent = 'CONECTADO';
-                } else if (!telemetryActive) {
-                    document.getElementById('statusText').textContent = 'TELEMETRÍA DESACTIVADA';
-                } else {
-                    console.log("No existe el documento!");
-                    document.getElementById('statusText').textContent = 'SIN DATOS';
-                }
-            }, (error) => {
-                console.error("Error al escuchar datos:", error);
-                document.getElementById('statusText').textContent = 'ERROR CONEXIÓN';
-            });
-        }
+// Iluminación
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+sunLight.position.set(2000, 500, 1000);
+scene.add(sunLight);
+const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
+scene.add(ambientLight);
 
-        function updateTelemetryDisplay(data) {
-            document.getElementById('altitude').textContent = 
-                ((data.altitude_m || 0) / 1000).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' km';
-            document.getElementById('apogeo').textContent = 
-                ((data.apogeo || 0) / 1000).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' km';
-            document.getElementById('perigeo').textContent = 
-                ((data.perigeo || 0) / 1000).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' km';
-            document.getElementById('velocity').textContent = 
-                Math.round(data.velocity_kmh || 0).toLocaleString('es-ES') + ' km/h';
-        }
+// Cohete
+const rocketGeometry = new THREE.ConeGeometry(15, 50, 8);
+const rocketMaterial = new THREE.MeshPhongMaterial({
+    color: 0xff6600,
+    emissive: 0xff6600,
+    emissiveIntensity: 0.5
+});
+const rocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
+scene.add(rocket);
 
-        function updateOrbit(data) {
-            if (data.perigeo && data.apogeo) {
-                createOrbit(data.perigeo, data.apogeo, data.inclination || 0);
-                createMarkers(data.perigeo, data.apogeo, data.inclination || 0);
-            }
-        }
+// Trail del cohete
+const trailPoints = [];
+const maxTrailPoints = 200;
+const trailGeometry = new THREE.BufferGeometry();
+const trailMaterial = new THREE.LineBasicMaterial({
+    color: 0xff8800,
+    transparent: true,
+    opacity: 0.8
+});
+const trail = new THREE.Line(trailGeometry, trailMaterial);
+scene.add(trail);
 
-        function updateRocketPosition() {
-            if (telemetryData.altitude_m && telemetryData.perigeo && telemetryData.apogeo) {
-                const perigeo = telemetryData.perigeo / 1000;
-                const apogeo = telemetryData.apogeo / 1000;
-                const altitude = telemetryData.altitude_m / 1000;
-                const inclination = (telemetryData.inclination || 0) * Math.PI / 180;
-                
-                const a = (perigeo + apogeo) / 2 + kerbinRadius;
-                const c = (apogeo - perigeo) / 2;
-                const b = Math.sqrt(a * a - c * c);
-                
-                const r = altitude + kerbinRadius;
-                
-                const e = c / a;
-                const cosTheta = (a * (1 - e * e) / r - 1) / e;
-                const theta = Math.acos(Math.max(-1, Math.min(1, cosTheta)));
-                
-                const x = (a * Math.cos(theta) - c);
-                const y = b * Math.sin(theta);
-                
-                rocket.position.x = x;
-                rocket.position.y = y * Math.cos(inclination);
-                rocket.position.z = y * Math.sin(inclination);
+// Órbita elíptica
+let orbitLine = null;
+function createOrbit(perigeo, apogeo, inclination) {
+    if (orbitLine) scene.remove(orbitLine);
 
-                const nextTheta = theta + 0.01;
-                const nextX = (a * Math.cos(nextTheta) - c);
-                const nextY = b * Math.sin(nextTheta);
-                const nextPos = new THREE.Vector3(
-                    nextX,
-                    nextY * Math.cos(inclination),
-                    nextY * Math.sin(inclination)
-                );
-                rocket.lookAt(nextPos);
+    const a = (perigeo + apogeo) / 2000 + kerbinRadius;
+    const c = (apogeo - perigeo) / 2000;
+    const b = Math.sqrt(a * a - c * c);
 
-                trailPoints.push(rocket.position.clone());
-                if (trailPoints.length > maxTrailPoints) {
-                    trailPoints.shift();
-                }
-                trailGeometry.setFromPoints(trailPoints);
-            }
-        }
+    const points = [];
+    const segments = 200;
 
-        function animate() {
-            requestAnimationFrame(animate);
+    for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI * 2;
+        const x = a * Math.cos(angle) - c;
+        const y = b * Math.sin(angle);
+        const z = y * Math.sin(inclination * Math.PI / 180);
+        const yRotated = y * Math.cos(inclination * Math.PI / 180);
+        points.push(new THREE.Vector3(x, yRotated, z));
+    }
 
-            kerbin.rotation.y += 0.001;
-            atmosphere.rotation.y += 0.0005;
+    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    const orbitMaterial = new THREE.LineBasicMaterial({
+        color: 0x00ffcc,
+        transparent: true,
+        opacity: 0.7
+    });
+    orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
+    scene.add(orbitLine);
+}
 
-            controls.update();
+// Marcadores de apogeo y perigeo
+let apogeoMarker = null;
+let perigeoMarker = null;
+function createMarkers(perigeo, apogeo, inclination) {
+    if (apogeoMarker) scene.remove(apogeoMarker);
+    if (perigeoMarker) scene.remove(perigeoMarker);
 
-            renderer.render(scene, camera);
-        }
+    const markerGeometry = new THREE.SphereGeometry(20, 16, 16);
 
-        animate();
+    const apogeoMaterial = new THREE.MeshBasicMaterial({ color: 0xff3366 });
+    apogeoMarker = new THREE.Mesh(markerGeometry, apogeoMaterial);
+    const apogeoDistance = apogeo / 1000 + kerbinRadius;
+    apogeoMarker.position.set(-apogeoDistance, 0, 0);
+    scene.add(apogeoMarker);
 
-        // Toggle panel telemetría
-        const toggleBtn = document.getElementById('toggleBtn');
-        const toggleBtnText = toggleBtn.querySelector('.toggle-btn-text');
-        const telemetryPanel = document.getElementById('telemetry');
-        let isHidden = false;
+    const perigeoMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+    perigeoMarker = new THREE.Mesh(markerGeometry, perigeoMaterial);
+    const perigeoDistance = perigeo / 1000 + kerbinRadius;
+    perigeoMarker.position.set(perigeoDistance, 0, 0);
+    scene.add(perigeoMarker);
+}
 
-        toggleBtn.addEventListener('click', () => {
-            isHidden = !isHidden;
-            if (isHidden) {
-                telemetryPanel.classList.add('hidden');
-                toggleBtnText.textContent = 'MOSTRAR';
+camera.position.set(2000, 1000, 2000);
+camera.lookAt(0, 0, 0);
+
+// Controles de cámara
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.screenSpacePanning = false;
+controls.minDistance = 700;
+controls.maxDistance = 8000;
+controls.enableZoom = true;
+controls.enableRotate = true;
+controls.enablePan = true;
+
+// Obtener ID de la misión desde la URL
+const urlParams = new URLSearchParams(window.location.search);
+missionId = urlParams.get('id');
+if (!missionId) {
+    document.getElementById('statusText').textContent = 'SIN ID DE MISIÓN';
+    document.getElementById('loading').innerHTML = '❌ No se especificó ID de misión<br><small>Usa ?id=[ID] en la URL</small>';
+    console.error('No se proporcionó ID de misión en la URL');
+} else {
+    // Verificar si la telemetría está activa para esta misión
+    const missionRef = doc(db, 'lanzamientos', missionId);
+    onSnapshot(missionRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const missionData = docSnap.data();
+            missionName = missionData.nombre || missionId;
+            telemetryActive = missionData.telemetria_on === true;
+            lanzamiento = {
+                estado: missionData.estado || "preparacion",
+                holdTime: missionData.holdTime || null,
+                fecha: missionData.fecha || "",
+                timeUTC: missionData.timeUTC || "00:00:00"
+            };
+
+            // Dentro del mismo onSnapshot:
+const statusElement = document.getElementById('missionStatus');
+statusElement.textContent = lanzamiento.estado.toUpperCase();
+
+
+            // Actualizar título con nombre de misión
+            document.getElementById('missionTitle').textContent = 'TELEMETRÍA ' + missionName.toUpperCase();
+
+            if (!telemetryActive) {
+                document.getElementById('statusText').textContent = 'DESCONECTADO';
+                document.getElementById('loading').innerHTML = '⚠️ Telemetría desactivada para esta misión<br><small>' + missionName + '</small>';
             } else {
-                telemetryPanel.classList.remove('hidden');
-                toggleBtnText.textContent = 'OCULTAR';
+                document.getElementById('loading').style.display = 'none';
+                iniciarContador();
+                startTelemetryListener();
             }
-        });
+        } else {
+            document.getElementById('statusText').textContent = 'MISIÓN NO ENCONTRADA';
+            document.getElementById('loading').innerHTML = '❌ Misión no encontrada<br><small>ID: ' + missionId + '</small>';
+        }
+    });
+}
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+function startTelemetryListener() {
+    const docRef = doc(db, 'telemetria', 'estado_actual');
+    const statusDiv = document.querySelector('.status');
+    onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists() && telemetryActive) {
+            const data = docSnap.data();
+            telemetryData = data;
+            updateTelemetryDisplay(data);
+            updateOrbit(data);
+            updateRocketPosition();
+            document.getElementById('statusText').textContent = 'CONECTADO';
+            statusDiv.classList.add('connected');
+        } else if (!telemetryActive) {
+            document.getElementById('statusText').textContent = 'DESCONECTADO';
+            statusDiv.classList.remove('connected');
+        } else {
+            console.log("No existe el documento!");
+            document.getElementById('statusText').textContent = 'SIN DATOS';
+            statusDiv.classList.remove('connected');
+        }
+    }, (error) => {
+        console.error("Error al escuchar datos:", error);
+        document.getElementById('statusText').textContent = 'ERROR CONEXIÓN';
+        statusDiv.classList.remove('connected');
+    });
+}
+
+function updateTelemetryDisplay(data) {
+    document.getElementById('altitude').textContent =
+        ((data.altitude_m || 0) / 1000).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' km';
+    document.getElementById('apogeo').textContent =
+        ((data.apogeo || 0) / 1000).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' km';
+    document.getElementById('perigeo').textContent =
+        ((data.perigeo || 0) / 1000).toLocaleString('es-ES', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' km';
+    document.getElementById('velocity').textContent =
+        Math.round(data.velocity_kmh || 0).toLocaleString('es-ES') + ' km/h';
+}
+
+function updateOrbit(data) {
+    if (data.perigeo && data.apogeo) {
+        createOrbit(data.perigeo, data.apogeo, data.inclination || 0);
+        createMarkers(data.perigeo, data.apogeo, data.inclination || 0);
+    }
+}
+
+function updateRocketPosition() {
+    if (telemetryData.altitude_m && telemetryData.perigeo && telemetryData.apogeo) {
+        const perigeo = telemetryData.perigeo / 1000;
+        const apogeo = telemetryData.apogeo / 1000;
+        const altitude = telemetryData.altitude_m / 1000;
+        const inclination = (telemetryData.inclination || 0) * Math.PI / 180;
+
+        const a = (perigeo + apogeo) / 2 + kerbinRadius;
+        const c = (apogeo - perigeo) / 2;
+        const b = Math.sqrt(a * a - c * c);
+
+        const r = altitude + kerbinRadius;
+
+        const e = c / a;
+        const cosTheta = (a * (1 - e * e) / r - 1) / e;
+        const theta = Math.acos(Math.max(-1, Math.min(1, cosTheta)));
+
+        const x = (a * Math.cos(theta) - c);
+        const y = b * Math.sin(theta);
+
+        rocket.position.x = x;
+        rocket.position.y = y * Math.cos(inclination);
+        rocket.position.z = y * Math.sin(inclination);
+        const nextTheta = theta + 0.01;
+        const nextX = (a * Math.cos(nextTheta) - c);
+        const nextY = b * Math.sin(nextTheta);
+        const nextPos = new THREE.Vector3(
+            nextX,
+            nextY * Math.cos(inclination),
+            nextY * Math.sin(inclination)
+        );
+        rocket.lookAt(nextPos);
+        trailPoints.push(rocket.position.clone());
+        if (trailPoints.length > maxTrailPoints) {
+            trailPoints.shift();
+        }
+        trailGeometry.setFromPoints(trailPoints);
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    kerbin.rotation.y += 0.001;
+    atmosphere.rotation.y += 0.0005;
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+animate();
+
+// Toggle panel telemetría
+const toggleBtn = document.getElementById('toggleBtn');
+const toggleBtnText = toggleBtn.querySelector('.toggle-btn-text');
+const telemetryPanel = document.getElementById('telemetry');
+let isHidden = false;
+toggleBtn.addEventListener('click', () => {
+    isHidden = !isHidden;
+    if (isHidden) {
+        telemetryPanel.classList.add('hidden');
+        toggleBtnText.textContent = 'MOSTRAR';
+    } else {
+        telemetryPanel.classList.remove('hidden');
+        toggleBtnText.textContent = 'OCULTAR';
+    }
+});
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
     </script>
 </body>
 </html>
