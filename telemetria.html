@@ -4,671 +4,618 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Halcón Space • Mission Control</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0a0e17;
-            --surface: #111827;
-            --border: #1f2937;
-            --primary: #00d4ff;
-            --text: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --pl-color: #00d4ff;
-            --lox-color: #00ff88;
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface-hover: #21262d;
+            --border: #30363d;
+            --primary: #00e1ff;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --success: #238636;
+            --warning: #d29922;
+            --danger: #da3633;
+            --rp1: #00d4ff;
+            --lox: #39d353;
         }
 
-        * { margin:0; padding:0; box-sizing:border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', system-ui, sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100dvh;
-            overflow-x: hidden;
+            line-height: 1.5;
         }
 
-        .container {
-            display: grid;
-            grid-template-columns: 380px 1fr;
-            grid-template-rows: 70px 1fr;
-            height: 100dvh;
+        h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100dvh;
         }
 
+        /* Header */
         header {
-            grid-column: 1 / 3;
             background: var(--surface);
             border-bottom: 1px solid var(--border);
-            padding: 0 32px;
+            padding: 1rem;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 100;
+            flex-direction: column;
+            gap: 0.75rem;
+            text-align: center;
         }
 
-        .logo-title { display: flex; align-items: center; gap: 16px; }
-        .logo-title img { height: 44px; }
-        .mission-name { font-size: 20px; font-weight: 600; }
-        .mission-id { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        @media (min-width: 768px) {
+            header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                text-align: left;
+                padding: 1rem 2rem;
+            }
+        }
 
-        .status-bar { display: flex; align-items: center; gap: 24px; font-size: 14px; font-weight: 500; }
-        .status-indicator { display: flex; align-items: center; gap: 8px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
-        .dot.connected { background: var(--success); animation: pulse 2s infinite; }
+        .logo-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .logo-section img { height: 40px; }
+
+        .mission-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .mission-id {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .status-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        @media (min-width: 768px) {
+            .status-section { flex-direction: row; }
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--danger);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+        }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+            50% { opacity: 0.5; }
         }
 
-        .sidebar {
-            background: var(--surface);
-            border-right: 1px solid var(--border);
-            padding: 32px;
+        /* Main content */
+        main {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 32px;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
-        .countdown { text-align: center; }
-        .countdown-label { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .countdown-value { font-size: 48px; font-weight: 700; letter-spacing: -1px; color: var(--primary); transition: color 0.3s; }
+        /* Sidebar → se convierte en sección superior en móvil */
+        .sidebar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
 
-        .mission-phase {
-            font-size: 18px; font-weight: 600; text-align: center; padding: 16px;
-            background: rgba(0,212,255,0.1);
-            border: 1px solid rgba(0,212,255,0.2);
-            border-radius: 8px;
-            transition: all 0.3s;
+        @media (min-width: 1024px) {
+            main { flex-direction: row; }
+            .sidebar {
+                width: 360px;
+                border-bottom: none;
+                border-right: 1px solid var(--border);
+                min-height: 100%;
+            }
+        }
+
+        .countdown {
+            text-align: center;
+        }
+
+        .countdown-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .countdown-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .phase {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0, 225, 255, 0.1);
+            border: 1px solid rgba(0, 225, 255, 0.3);
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
         }
 
         .telemetry-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 1rem;
         }
 
         .telemetry-card {
-            background: rgba(17,24,39,0.6);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            transition: transform 0.2s, border-color 0.2s;
-        }
-
-        .telemetry-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--primary);
-        }
-
-        .card-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .card-value { font-size: 28px; font-weight: 700; color: var(--primary); }
-        .card-unit { font-size: 14px; color: var(--text-secondary); margin-left: 6px; font-weight: 500; }
-
-        .main-area {
-            background: var(--bg);
-            padding: 32px;
-            display: grid;
-            grid-template-rows: 1fr 240px;
-            gap: 32px;
-        }
-
-        .visualization {
-            background: var(--surface);
+            background: var(--surface-hover);
             border: 1px solid var(--border);
             border-radius: 12px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .altitude-center {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+            padding: 1rem;
             text-align: center;
-            z-index: 2;
         }
 
-        .altitude-value { font-size: 120px; font-weight: 800; line-height: 1; color: var(--primary); text-shadow: 0 0 30px rgba(0,212,255,0.5); }
-        .altitude-label { font-size: 18px; color: var(--text-secondary); margin-top: 8px; letter-spacing: 3px; }
-
-        canvas { position: absolute; inset: 0; }
-
-        .bottom-panel {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 32px;
-        }
-
-        .orbit-params {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-        }
-
-        .orbit-item { text-align: center; }
-        .orbit-label { font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .orbit-value { font-size: 42px; font-weight: 700; }
-        .apogee { color: var(--success); }
-        .perigee { color: var(--warning); }
-
-        .propellant-panel {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .propellant-title {
-            font-size: 16px;
-            font-weight: 600;
-            text-align: center;
-            color: var(--text-secondary);
+        .card-label {
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
         }
 
-        .propellant-item { display: flex; flex-direction: column; gap: 8px; }
-        .propellant-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .propellant-bar {
-            height: 36px;
-            background: rgba(0,0,0,0.5);
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-            border: 1px solid var(--border);
-        }
-
-        .propellant-fill {
-            height: 100%;
-            width: 100%;
-            transition: width 0.8s ease;
-            border-radius: 8px;
-        }
-
-        .pl-fill { background: linear-gradient(90deg, var(--pl-color), #00a8cc); }
-        .lox-fill { background: linear-gradient(90deg, var(--lox-color), #00cc66); }
-
-        .propellant-text {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 16px;
+        .card-value {
+            font-size: 1.5rem;
             font-weight: 700;
-            color: white;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-        }
-
-        .propellant-info {
-            font-size: 14px;
-            color: var(--text-secondary);
-            text-align: center;
-        }
-
-        /* Panel de ingreso inicial */
-        #missionInputOverlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(10,14,23,0.98);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            opacity: 1;
-            transition: opacity 0.4s ease;
-        }
-
-        #missionInputOverlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .input-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 48px;
-            width: 90%;
-            max-width: 500px;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-        }
-
-        .input-card h2 {
-            font-size: 28px;
-            margin-bottom: 12px;
             color: var(--primary);
-            font-weight: 700;
         }
 
-        .input-card p {
-            color: var(--text-secondary);
-            margin-bottom: 36px;
-            font-size: 15px;
-            line-height: 1.6;
+        .card-unit {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-left: 0.25rem;
         }
 
-        .form-group {
-            margin-bottom: 24px;
-            text-align: left;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 13px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 16px;
-            background: rgba(17,24,39,0.8);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: white;
-            font-size: 16px;
-            font-family: 'Inter', sans-serif;
-            transition: border-color 0.3s, background 0.3s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            background: rgba(17,24,39,1);
-        }
-
-        .form-input::placeholder {
-            color: #64748b;
-        }
-
-        #loadMissionBtn {
-            width: 100%;
-            padding: 18px 32px;
-            background: var(--primary);
-            color: black;
-            font-weight: 700;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 12px;
-        }
-
-        #loadMissionBtn:hover {
-            background: #00eaff;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,212,255,0.3);
-        }
-
-        #loadMissionBtn:active {
-            transform: translateY(0);
-        }
-
-        /* BOTÓN GO / NO GO */
-        .go-nogo-container {
-            margin: 32px auto 20px;
+        /* GO/NO-GO Section */
+        .gng-section {
             text-align: center;
-            padding: 0 20px;
+            padding: 1rem;
         }
 
-        .client-name-display {
-            font-size: 13px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 4px;
-        }
-
-        .client-name-value {
-            font-size: 18px;
+        .client-name {
+            font-size: 1.1rem;
             color: var(--primary);
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-
-        .go-nogo-label {
-            font-size: 14px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 12px;
+            margin-bottom: 0.5rem;
         }
 
         #goNoGoBtn {
-            padding: 28px 60px;
-            font-size: 36px;
+            padding: 1.5rem 3rem;
+            margin: 1rem 0;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
             font-weight: 700;
-            font-family: 'Inter', sans-serif;
             border: none;
             border-radius: 16px;
-            cursor: pointer;
-            min-width: 300px;
             color: white;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.7);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            text-transform: uppercase;
-            letter-spacing: 3px;
+            cursor: pointer;
+            min-width: 260px;
             background: #475569;
-        }
-
-        #goNoGoBtn:hover {
-            transform: translateY(-6px) scale(1.02);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-        }
-
-        #goNoGoBtn:active {
-            transform: translateY(-3px) scale(1.01);
+            transition: all 0.3s ease;
         }
 
         #goStatusText {
-            margin-top: 16px;
-            font-size: 19px;
-            font-weight: 600;
-            min-height: 30px;
-            color: var(--text-secondary);
-        }
-
-        .btn-change-name {
-            padding: 10px 24px;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            color: white;
-            transition: all 0.2s;
+            min-height: 1.5em;
+            color: var(--text-muted);
             font-weight: 500;
         }
 
-        .btn-change-name:hover {
-            background: rgba(0,212,255,0.1);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        /* Modal de cambio de nombre */
-        #changeNameModal {
-            position: fixed;
-            inset: 0;
-            background: rgba(10,14,23,0.95);
-            backdrop-filter: blur(8px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        #changeNameModal.show {
-            display: flex;
-            opacity: 1;
-        }
-
-        .modal-card {
+        /* Visual area */
+        .visual-area {
+            flex: 1;
+            position: relative;
             background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 40px;
-            width: 90%;
-            max-width: 420px;
+            border-radius: 12px;
+            margin: 1.5rem;
+            overflow: hidden;
+        }
+
+        @media (max-width: 1023px) {
+            .visual-area { margin: 1rem; border-radius: 12px; }
+        }
+
+        canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .altitude-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            pointer-events: none;
+            z-index: 2;
         }
 
-        .modal-card h3 {
-            font-size: 22px;
-            margin-bottom: 12px;
-            color: var(--primary);
-        }
-
-        .modal-card p {
-            color: var(--text-secondary);
-            margin-bottom: 28px;
-            font-size: 14px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 24px;
-        }
-
-        .btn-cancel {
-            flex: 1;
-            padding: 14px;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: white;
-            cursor: pointer;
-            font-size: 15px;
-            transition: all 0.2s;
-        }
-
-        .btn-cancel:hover {
-            background: rgba(255,255,255,0.05);
-        }
-
-        .btn-confirm {
-            flex: 1;
-            padding: 14px;
-            background: var(--primary);
-            border: none;
-            border-radius: 8px;
-            color: black;
+        .altitude-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 5rem;
             font-weight: 700;
-            cursor: pointer;
-            font-size: 15px;
-            transition: all 0.2s;
+            color: var(--primary);
+            text-shadow: 0 0 20px rgba(0, 225, 255, 0.6);
         }
 
-        .btn-confirm:hover {
-            background: #00eaff;
-        }
-
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .container {
-                grid-template-columns: 1fr;
-                grid-template-rows: 70px auto 1fr auto;
-            }
-            .sidebar {
-                grid-row: 2;
-                border-right: none;
-                border-bottom: 1px solid var(--border);
-                padding: 24px;
-                gap: 28px;
-            }
-            .telemetry-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
-            .go-nogo-container { margin: 24px auto 16px; }
-            #goNoGoBtn { font-size: 32px; padding: 24px 50px; min-width: 280px; }
+        .altitude-label {
+            font-size: 1rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         @media (max-width: 640px) {
-            header { flex-direction: column; gap: 16px; padding: 16px; text-align: center; }
-            .logo-title { justify-content: center; }
-            .status-bar { flex-direction: column; gap: 12px; }
-            .sidebar { padding: 20px; gap: 24px; }
-            .countdown-value { font-size: 40px; }
-            .mission-phase { font-size: 16px; padding: 14px; }
-            .telemetry-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
-            .card-value { font-size: 24px; }
-            #goNoGoBtn { font-size: 28px; padding: 20px 40px; min-width: 260px; }
-            .go-nogo-label { font-size: 13px; }
-            #goStatusText { font-size: 17px; }
-            .altitude-value { font-size: 70px; }
-            .altitude-label { font-size: 15px; }
-            .orbit-value { font-size: 36px; }
-            .bottom-panel { grid-template-columns: 1fr; gap: 20px; }
-            .input-card { padding: 32px 24px; }
+            .altitude-value { font-size: 3.5rem; }
+        }
+
+        /* Bottom panels */
+        .bottom-panels {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .bottom-panels { grid-template-columns: 1fr 1fr; }
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .orbit-grid {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .orbit-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .apogee { color: var(--success); }
+        .perigee { color: var(--warning); }
+
+        .propellant-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .propellant-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .prop-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .bar-container {
+            height: 40px;
+            background: #0d1117;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 100%;
+            border-radius: 8px;
+            transition: width 0.8s ease;
+        }
+
+        .rp1-fill { background: linear-gradient(90deg, var(--rp1), #00a8cc); }
+        .lox-fill { background: linear-gradient(90deg, var(--lox), #238636); }
+
+        .bar-text {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .prop-info {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* Overlays */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(13, 17, 23, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 480px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .card h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 1rem;
+            background: var(--surface-hover);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button.primary {
+            width: 100%;
+            padding: 1rem;
+            background: var(--primary);
+            color: #000;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        button.primary:hover {
+            background: #00f0ff;
+            transform: translateY(-2px);
+        }
+
+        .btn-change {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .btn-change:hover {
+            border-color: var(--primary);
+            color: var(--primary);
         }
     </style>
 </head>
 <body>
 
-<!-- Panel de ingreso inicial -->
-<div id="missionInputOverlay">
-    <div class="input-card">
+<div id="missionInputOverlay" class="overlay visible">
+    <div class="card">
         <h2>Halcón Space</h2>
         <p>Bienvenido al Control de Misión.<br>Ingrese sus datos para comenzar el seguimiento en vivo.</p>
-        
         <form id="initialForm">
             <div class="form-group">
-                <label class="form-label">Nombre del Cliente</label>
-                <input type="text" id="clientNameInput" class="form-input" placeholder="Ej: Juan Pérez" required>
+                <label>Nombre del Cliente</label>
+                <input type="text" id="clientNameInput" placeholder="Ej: Juan Pérez" required>
             </div>
-            
             <div class="form-group">
-                <label class="form-label">ID de Misión</label>
-                <input type="text" id="missionIdInput" class="form-input" placeholder="Ej: HS-001" maxlength="20" required>
+                <label>ID de Misión</label>
+                <input type="text" id="missionIdInput" placeholder="Ej: HS-001" required>
             </div>
-            
-            <button type="submit" id="loadMissionBtn">Iniciar Seguimiento</button>
+            <button type="submit" class="primary">Iniciar Seguimiento</button>
         </form>
-        
-        <small style="color:#64748b;margin-top:16px;display:block;">Presiona Enter o el botón para continuar</small>
     </div>
 </div>
 
-<!-- Modal de cambio de nombre -->
-<div id="changeNameModal">
-    <div class="modal-card">
-        <h3>Cambiar Nombre</h3>
-        <p>Ingrese su nuevo nombre para la sesión</p>
-        
+<div id="changeNameModal" class="overlay">
+    <div class="card">
+        <h2>Cambiar Nombre</h2>
+        <p>Ingrese el nuevo nombre para esta sesión</p>
         <div class="form-group">
-            <input type="text" id="newClientNameInput" class="form-input" placeholder="Nuevo nombre">
+            <input type="text" id="newClientNameInput" placeholder="Nuevo nombre">
         </div>
-        
-        <div class="modal-buttons">
-            <button class="btn-cancel" id="btnCancelName">Cancelar</button>
-            <button class="btn-confirm" id="btnConfirmName">Confirmar</button>
+        <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+            <button class="btn-change" id="btnCancelName" style="flex:1;">Cancelar</button>
+            <button class="primary" id="btnConfirmName" style="flex:1;">Confirmar</button>
         </div>
     </div>
 </div>
 
-<div class="container">
-
+<div class="app">
     <header>
-        <div class="logo-title">
+        <div class="logo-section">
             <img src="https://halconspace.site/img/logo.png" alt="Halcón Space">
             <div>
-                <div class="mission-name">Telemetría en tiempo real - Halcón Space</div>
+                <div class="mission-title">Telemetría en tiempo real</div>
                 <div class="mission-id">Misión: <span id="missionName">—</span></div>
             </div>
         </div>
-        <div class="status-bar">
-            <div class="status-indicator">
-                <div class="dot" id="statusDot"></div>
+        <div class="status-section">
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div class="status-dot" id="statusDot"></div>
                 <span id="connectionStatus">Conectando...</span>
             </div>
-            <button class="btn-change-name" id="btnOpenChangeName">Cambiar nombre</button>
+            <button class="btn-change" id="btnOpenChangeName">Cambiar nombre</button>
         </div>
     </header>
 
-    <aside class="sidebar">
-        <div class="countdown">
-            <div class="countdown-label">Tiempo de misión</div>
-            <div class="countdown-value" id="missionTimeDisplay">T- 00:00:00</div>
-        </div>
+    <main>
+        <section class="sidebar">
+            <div class="countdown">
+                <div class="countdown-label">Tiempo de misión</div>
+                <div class="countdown-value" id="missionTimeDisplay">T- 00:00:00</div>
+            </div>
 
-        <div class="mission-phase" id="missionStatusDisplay">PREPARACIÓN</div>
-        
-        <div class="telemetry-grid">
-            <div class="telemetry-card">
-                <div class="card-label">Velocidad</div>
-                <div class="card-value" id="velocityDisplay">0<span class="card-unit"> km/h</span></div>
-            </div>
-            <div class="telemetry-card">
-                <div class="card-label">Propelente Total</div>
-                <div class="card-value" id="propelenteDisplay">100<span class="card-unit"> %</span></div>
-            </div>
-            <div class="telemetry-card">
-                <div class="card-label">Altitud</div>
-                <div class="card-value" id="altitudeSidebar">0.0<span class="card-unit"> km</span></div>
-            </div>
-            <div class="telemetry-card">
-                <div class="card-label">Inclinación</div>
-                <div class="card-value" id="inclinationDisplay">0.0<span class="card-unit"> °</span></div>
-            </div>
-        </div>
+            <div class="phase" id="missionStatusDisplay">PREPARACIÓN</div>
 
-        <!-- BOTÓN GO / NO GO DEL CLIENTE -->
-        <div class="go-nogo-container">
-            <div class="client-name-display">Cliente</div>
-            <div class="client-name-value" id="clientNameDisplay">—</div>
-            <div class="go-nogo-label">Autorización de Lanzamiento</div>
-            <button id="goNoGoBtn">CARGANDO...</button>
-            <div id="goStatusText">Esperando autorización del cliente...</div>
-        </div>
-    </aside>
-
-    <main class="main-area">
-        <div class="visualization">
-            <canvas id="trajectoryCanvas"></canvas>
-            <div class="altitude-center">
-                <div class="altitude-value" id="altitudeDisplay">0.0</div>
-                <div class="altitude-label">ALTITUD (km)</div>
-            </div>
-        </div>
-
-        <div class="bottom-panel">
-            <div class="orbit-params">
-                <div class="orbit-item">
-                    <div class="orbit-label">Apogeo</div>
-                    <div class="orbit-value apogee" id="apogeeDisplay">—<span style="font-size:24px;margin-left:4px;color:var(--text-secondary);"> km</span></div>
+            <div class="telemetry-grid">
+                <div class="telemetry-card">
+                    <div class="card-label">Velocidad</div>
+                    <div class="card-value" id="velocityDisplay">0<span class="card-unit"> km/h</span></div>
                 </div>
-                <div class="orbit-item">
-                    <div class="orbit-label">Perigeo</div>
-                    <div class="orbit-value perigee" id="perigeeDisplay">—<span style="font-size:24px;margin-left:4px;color:var(--text-secondary);"> km</span></div>
+                <div class="telemetry-card">
+                    <div class="card-label">Propelente Total</div>
+                    <div class="card-value" id="propelenteDisplay">100<span class="card-unit"> %</span></div>
+                </div>
+                <div class="telemetry-card">
+                    <div class="card-label">Altitud</div>
+                    <div class="card-value" id="altitudeSidebar">0.0<span class="card-unit"> km</span></div>
+                </div>
+                <div class="telemetry-card">
+                    <div class="card-label">Inclinación</div>
+                    <div class="card-value" id="inclinationDisplay">0.0<span class="card-unit"> °</span></div>
                 </div>
             </div>
 
-            <div class="propellant-panel">
-                <div class="propellant-title">Propelentes</div>
+            <div class="gng-section">
+                <div class="countdown-label">Cliente</div>
+                <div class="client-name" id="clientNameDisplay">—</div>
+                <div class="countdown-label" style="margin-top:1rem;">Autorización de Lanzamiento</div>
+                <button id="goNoGoBtn">CARGANDO...</button>
+                <div id="goStatusText">Esperando autorización del cliente...</div>
+            </div>
+        </section>
 
-                <div class="propellant-item">
-                    <div class="propellant-label" style="color:var(--pl-color);">Queroseno Refinado (RP1)</div>
-                    <div class="propellant-bar">
-                        <div class="propellant-fill pl-fill" id="plFill"></div>
-                        <div class="propellant-text" id="plText">100%</div>
+        <div style="flex:1;display:flex;flex-direction:column;">
+            <div class="visual-area">
+                <canvas id="trajectoryCanvas"></canvas>
+                <div class="altitude-overlay">
+                    <div class="altitude-value" id="altitudeDisplay">0.0</div>
+                    <div class="altitude-label">Altitud (km)</div>
+                </div>
+            </div>
+
+            <div class="bottom-panels">
+                <div class="panel">
+                    <div class="orbit-grid">
+                        <div>
+                            <div class="card-label">Apogeo</div>
+                            <div class="orbit-value apogee" id="apogeeDisplay">— km</div>
+                        </div>
+                        <div>
+                            <div class="card-label">Perigeo</div>
+                            <div class="orbit-value perigee" id="perigeeDisplay">— km</div>
+                        </div>
                     </div>
-                    <div class="propellant-info" id="plInfo">12.420 kg / 12.420 kg</div>
                 </div>
 
-                <div class="propellant-item">
-                    <div class="propellant-label" style="color:var(--lox-color);">Oxígeno Líquido (LOX)</div>
-                    <div class="propellant-bar">
-                        <div class="propellant-fill lox-fill" id="loxFill"></div>
-                        <div class="propellant-text" id="loxText">100%</div>
+                <div class="panel">
+                    <div style="text-align:center;margin-bottom:1rem;">
+                        <div class="card-label">Propelentes</div>
                     </div>
-                    <div class="propellant-info" id="loxInfo">15.180 kg / 15.180 kg</div>
+                    <div class="propellant-list">
+                        <div class="propellant-item">
+                            <div class="prop-label" style="color:var(--rp1);">Queroseno Refinado (RP1)</div>
+                            <div class="bar-container">
+                                <div class="bar-fill rp1-fill" id="plFill"></div>
+                                <div class="bar-text" id="plText">100%</div>
+                            </div>
+                            <div class="prop-info" id="plInfo">12.420 kg / 12.420 kg</div>
+                        </div>
+                        <div class="propellant-item">
+                            <div class="prop-label" style="color:var(--lox);">Oxígeno Líquido (LOX)</div>
+                            <div class="bar-container">
+                                <div class="bar-fill lox-fill" id="loxFill"></div>
+                                <div class="bar-text" id="loxText">100%</div>
+                            </div>
+                            <div class="prop-info" id="loxInfo">15.180 kg / 15.180 kg</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -707,25 +654,18 @@
         const diff = (launchTime - now) / 1000;
         const abs = Math.abs(diff);
 
-        if (diff < 0) {
-            const hh = String(Math.floor(abs / 3600)).padStart(2, "0");
-            const mm = String(Math.floor((abs % 3600) / 60)).padStart(2, "0");
-            const ss = String(Math.floor(abs % 60)).padStart(2, "0");
-            return `T+ ${hh}:${mm}:${ss}`;
-        }
-
         const hh = String(Math.floor(abs / 3600)).padStart(2, "0");
         const mm = String(Math.floor((abs % 3600) / 60)).padStart(2, "0");
         const ss = String(Math.floor(abs % 60)).padStart(2, "0");
-        return `T- ${hh}:${mm}:${ss}`;
+
+        return diff < 0 ? `T+ ${hh}:${mm}:${ss}` : `T- ${hh}:${mm}:${ss}`;
     };
 
     function iniciarMision(id, nombre) {
         clientName = nombre;
         document.getElementById('clientNameDisplay').textContent = nombre;
-        document.getElementById('missionInputOverlay').classList.add('hidden');
-        
-        // Nombre de la misión
+        document.getElementById('missionInputOverlay').classList.remove('visible');
+
         onSnapshot(doc(db, 'lanzamientos', id), s => {
             if (!s.exists()) return;
             const d = s.data();
@@ -740,17 +680,12 @@
                 const display = document.getElementById('missionTimeDisplay');
                 display.textContent = tiempoTexto;
 
-                if (estado === "HOLD") {
-                    display.style.color = '#fb923c';
-                } else if (estado === "SCRUB") {
-                    display.style.color = '#ef4444';
-                } else {
-                    display.style.color = 'var(--primary)';
-                }
+                if (estado === "HOLD") display.style.color = '#fb923c';
+                else if (estado === "SCRUB") display.style.color = '#ef4444';
+                else display.style.color = 'var(--primary)';
             }, 500);
         });
 
-        // Telemetría en tiempo real
         onSnapshot(doc(db, 'telemetria', 'estado_actual'), s => {
             if (!s.exists()) return;
             const d = s.data();
@@ -772,8 +707,8 @@
             document.getElementById('velocityDisplay').innerHTML = Math.round(vel).toLocaleString() + '<span class="card-unit"> km/h</span>';
             document.getElementById('propelenteDisplay').innerHTML = totalPct + '<span class="card-unit"> %</span>';
             document.getElementById('inclinationDisplay').innerHTML = (d.inclination || 0).toFixed(1) + '<span class="card-unit"> °</span>';
-            document.getElementById('apogeeDisplay').innerHTML = ((d.apogeo||0)/1000).toFixed(1) + '<span style="font-size:24px;margin-left:4px;color:var(--text-secondary);"> km</span>';
-            document.getElementById('perigeeDisplay').innerHTML = ((d.perigeo||0)/1000).toFixed(1) + '<span style="font-size:24px;margin-left:4px;color:var(--text-secondary);"> km</span>';
+            document.getElementById('apogeeDisplay').innerHTML = ((d.apogeo||0)/1000).toFixed(1) + ' km';
+            document.getElementById('perigeeDisplay').innerHTML = ((d.perigeo||0)/1000).toFixed(1) + ' km';
 
             document.getElementById('plFill').style.width = plPct + '%';
             document.getElementById('plText').textContent = Math.round(plPct) + '%';
@@ -788,122 +723,83 @@
         });
     }
 
-    // Carga automática desde URL ?id=HS-001
+    // Carga desde URL
     const urlParams = new URLSearchParams(location.search);
     const urlId = urlParams.get('id');
     const urlName = urlParams.get('name');
-    
-    if (urlId && urlId.trim() !== "") {
-        const nombre = urlName && urlName.trim() !== "" ? urlName.trim() : "Cliente";
+    if (urlId && urlId.trim()) {
+        const nombre = urlName && urlName.trim() ? urlName.trim() : "Cliente";
         iniciarMision(urlId.trim(), nombre);
     }
 
-    // Formulario inicial
-    const initialForm = document.getElementById('initialForm');
-    initialForm.addEventListener('submit', (e) => {
+    // Form inicial
+    document.getElementById('initialForm').addEventListener('submit', e => {
         e.preventDefault();
         const nombre = document.getElementById('clientNameInput').value.trim();
         const id = document.getElementById('missionIdInput').value.trim();
-        
         if (nombre && id) {
             history.pushState(null, '', `?id=${id}&name=${encodeURIComponent(nombre)}`);
             iniciarMision(id, nombre);
         }
     });
 
-    // Modal de cambio de nombre
+    // Modal cambiar nombre
     const modal = document.getElementById('changeNameModal');
-    const btnOpenModal = document.getElementById('btnOpenChangeName');
-    const btnCancel = document.getElementById('btnCancelName');
-    const btnConfirm = document.getElementById('btnConfirmName');
-    const newNameInput = document.getElementById('newClientNameInput');
-
-    btnOpenModal.addEventListener('click', () => {
-        modal.classList.add('show');
-        newNameInput.value = '';
-        setTimeout(() => newNameInput.focus(), 100);
+    document.getElementById('btnOpenChangeName').addEventListener('click', () => {
+        modal.classList.add('visible');
+        document.getElementById('newClientNameInput').focus();
     });
-
-    btnCancel.addEventListener('click', () => {
-        modal.classList.remove('show');
-    });
-
-    btnConfirm.addEventListener('click', () => {
-        const nuevoNombre = newNameInput.value.trim();
-        if (nuevoNombre) {
-            clientName = nuevoNombre;
-            document.getElementById('clientNameDisplay').textContent = nuevoNombre;
-            
-            // Actualizar URL
-            const currentId = new URLSearchParams(location.search).get('id');
-            if (currentId) {
-                history.pushState(null, '', `?id=${currentId}&name=${encodeURIComponent(nuevoNombre)}`);
-            }
-            
-            modal.classList.remove('show');
+    document.getElementById('btnCancelName').addEventListener('click', () => modal.classList.remove('visible'));
+    document.getElementById('btnConfirmName').addEventListener('click', () => {
+        const nuevo = document.getElementById('newClientNameInput').value.trim();
+        if (nuevo) {
+            clientName = nuevo;
+            document.getElementById('clientNameDisplay').textContent = nuevo;
+            const currentId = urlParams.get('id');
+            if (currentId) history.pushState(null, '', `?id=${currentId}&name=${encodeURIComponent(nuevo)}`);
+            modal.classList.remove('visible');
         }
     });
 
-    // Cerrar modal con ESC
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('show')) {
-            modal.classList.remove('show');
-        }
-    });
-
-    // ==================== BOTÓN GO / NO GO ====================
+    // GO / NO GO
     const goBtn = document.getElementById('goNoGoBtn');
     const statusText = document.getElementById('goStatusText');
     let currentGo = null;
 
-    onSnapshot(doc(db, 'telemetria', 'ControlCenter'), (snap) => {
+    onSnapshot(doc(db, 'telemetria', 'ControlCenter'), snap => {
         if (!snap.exists()) {
             goBtn.textContent = "SIN CONEXIÓN";
             goBtn.style.background = "#475569";
             statusText.textContent = "Esperando centro de control...";
-            statusText.style.color = "#94a3b8";
-            currentGo = null;
             return;
         }
-
         const data = snap.data();
         currentGo = data.cliente ?? false;
 
-        if (currentGo === true) {
+        if (currentGo) {
             goBtn.textContent = "GO";
-            goBtn.style.background = "linear-gradient(135deg, #10b981, #059669)";
+            goBtn.style.background = "linear-gradient(135deg, #238636, #166534)";
             statusText.textContent = "AUTORIZADO PARA LANZAMIENTO";
             statusText.style.color = "#86efac";
         } else {
             goBtn.textContent = "NO GO";
-            goBtn.style.background = "linear-gradient(135deg, #ef4444, #dc2626)";
+            goBtn.style.background = "linear-gradient(135deg, #da3633, #b91c1c)";
             statusText.textContent = "Lanzamiento NO autorizado";
             statusText.style.color = "#fca5a5";
         }
-    }, (error) => {
-        goBtn.textContent = "ERROR";
-        goBtn.style.background = "#dc2626";
-        statusText.textContent = "Error de conexión";
-        statusText.style.color = "#fca5a5";
     });
 
     goBtn.addEventListener('click', async () => {
-        if (currentGo === null) {
-            alert("Esperando conexión con el centro de control...");
-            return;
-        }
-
-        const nuevoValor = !currentGo;
-
+        if (currentGo === null) return alert("Esperando conexión con el centro de control...");
         try {
             await updateDoc(doc(db, 'telemetria', 'ControlCenter'), {
-                cliente: nuevoValor,
+                cliente: !currentGo,
                 clienteTimestamp: serverTimestamp(),
                 clienteNombre: clientName || "Cliente Web"
             });
         } catch (err) {
-            console.error("Error:", err);
-            alert("No se pudo enviar autorización. Revisa la consola.");
+            console.error(err);
+            alert("Error al enviar autorización");
         }
     });
 </script>
