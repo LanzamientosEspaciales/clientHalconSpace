@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
     <style>
         :root {
             --bg: #0d1117;
@@ -301,20 +302,19 @@
             padding: 1.5rem;
         }
 
-        .orbit-grid {
-            display: flex;
-            justify-content: space-around;
-            text-align: center;
+        /* NUEVO: Panel de órbita con canvas p5.js */
+        .orbit-panel {
+            position: relative;
+            min-height: 280px;
         }
 
-        .orbit-value {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 2.5rem;
-            font-weight: 700;
+        #orbitCanvas {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
         }
-
-        .apogee { color: var(--success); }
-        .perigee { color: var(--warning); }
 
         .propellant-list {
             display: flex;
@@ -581,17 +581,8 @@
             </div>
 
             <div class="bottom-panels">
-                <div class="panel">
-                    <div class="orbit-grid">
-                        <div>
-                            <div class="card-label">Apogeo</div>
-                            <div class="orbit-value apogee" id="apogeeDisplay">— km</div>
-                        </div>
-                        <div>
-                            <div class="card-label">Perigeo</div>
-                            <div class="orbit-value perigee" id="perigeeDisplay">— km</div>
-                        </div>
-                    </div>
+                <div class="panel orbit-panel">
+                    <div id="orbitCanvasContainer"></div>
                 </div>
 
                 <div class="panel">
@@ -639,6 +630,15 @@
     const db = getFirestore(app);
     let interval = null;
     let clientName = "";
+
+    // Variables para p5.js
+    window.perigeo = 0;
+    window.apogeo = 0;
+    window.perigeoMax = 500;
+    window.apogeoMax = 500;
+    window.perigeoVisual = 0;
+    window.apogeoVisual = 0;
+    window.datosCargados = false;
 
     const calcularT = (fecha, timeUTC, holdTime = null) => {
         const [d, m, a] = fecha.split("/").map(Number);
@@ -707,8 +707,11 @@
             document.getElementById('velocityDisplay').innerHTML = Math.round(vel).toLocaleString() + '<span class="card-unit"> km/h</span>';
             document.getElementById('propelenteDisplay').innerHTML = totalPct + '<span class="card-unit"> %</span>';
             document.getElementById('inclinationDisplay').innerHTML = (d.inclination || 0).toFixed(1) + '<span class="card-unit"> °</span>';
-            document.getElementById('apogeeDisplay').innerHTML = ((d.apogeo||0)/1000).toFixed(1) + ' km';
-            document.getElementById('perigeeDisplay').innerHTML = ((d.perigeo||0)/1000).toFixed(1) + ' km';
+
+            // Actualizar datos para p5.js
+            window.perigeo = (d.perigeo || 0) / 1000;
+            window.apogeo = (d.apogeo || 0) / 1000;
+            window.datosCargados = true;
 
             document.getElementById('plFill').style.width = plPct + '%';
             document.getElementById('plText').textContent = Math.round(plPct) + '%';
@@ -720,6 +723,14 @@
 
             document.getElementById('connectionStatus').textContent = "CONECTADO";
             document.getElementById('statusDot').classList.add('connected');
+        });
+
+        // Escuchar configuración
+        onSnapshot(doc(db, 'telemetria', 'config'), s => {
+            if (!s.exists()) return;
+            const config = s.data();
+            window.perigeoMax = config.perigeoMax ?? 500;
+            window.apogeoMax = config.apogeoMax ?? 500;
         });
     }
 
@@ -801,6 +812,84 @@
             console.error(err);
             alert("Error al enviar autorización");
         }
+    });
+</script>
+
+<script>
+    // p5.js sketch para las animaciones de órbita
+    new p5(function(p) {
+        p.setup = function() {
+            const container = document.getElementById('orbitCanvasContainer');
+            const canvas = p.createCanvas(container.offsetWidth, 280);
+            canvas.parent('orbitCanvasContainer');
+            canvas.id('orbitCanvas');
+            p.pixelDensity(2);
+        };
+
+        p.draw = function() {
+            p.clear();
+
+            if (!window.datosCargados) {
+                p.fill(230, 237, 243);
+                p.textAlign(p.CENTER, p.CENTER);
+                p.textSize(16);
+                p.text("Cargando datos orbitales...", p.width / 2, p.height / 2);
+                return;
+            }
+
+            // Suavizado
+            window.perigeoVisual = p.lerp(window.perigeoVisual, window.perigeo, 0.1);
+            window.apogeoVisual = p.lerp(window.apogeoVisual, window.apogeo, 0.1);
+
+            // Dibujar arcos dinámicos
+            drawDynamicTelemetryArc(p.width * 0.3, p.height / 2, 80, "PERIGEO", window.perigeoVisual, window.perigeoMax, "km");
+            drawDynamicTelemetryArc(p.width * 0.7, p.height / 2, 80, "APOGEO", window.apogeoVisual, window.apogeoMax, "km");
+        };
+
+        function drawDynamicTelemetryArc(x, y, radius, label, value, maxValue, unit = "") {
+            let porcentaje = p.constrain(value / maxValue, 0, 1);
+            let startAngle = 3 * p.PI / 4;
+            let fullAngle = p.TWO_PI - startAngle;
+            let endAngle = startAngle + fullAngle * porcentaje;
+
+            p.noFill();
+            p.strokeWeight(5);
+
+            // Arco de fondo
+            p.stroke(230, 237, 243, 100);
+            p.arc(x, y, radius * 2, radius * 2, startAngle, startAngle + fullAngle);
+
+            // Arco de progreso (blanco)
+            p.stroke(255, 255, 255, 200);
+            p.arc(x, y, radius * 2, radius * 2, startAngle, endAngle);
+
+            // Círculo decorativo
+            p.stroke(230, 237, 243, 100);
+            p.strokeWeight(1);
+            p.circle(x, y, radius * 1.8);
+
+            // Texto
+            p.textAlign(p.CENTER, p.CENTER);
+            p.fill(230, 237, 243);
+            p.noStroke();
+            p.textSize(12);
+            p.textStyle(p.BOLD);
+            p.text(label, x, y - radius / 2);
+
+            let valor = value.toFixed(0);
+            p.textSize(30);
+            p.text(valor, x, y);
+            p.textSize(15);
+            p.text(unit, x, y + 30);
+        }
+
+        // Responsividad
+        p.windowResized = function() {
+            const container = document.getElementById('orbitCanvasContainer');
+            if (container) {
+                p.resizeCanvas(container.offsetWidth, 280);
+            }
+        };
     });
 </script>
 </body>
